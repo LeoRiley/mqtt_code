@@ -6,7 +6,7 @@
 
 #include <MPU9250_asukiaaa.h>
 
-// Replace the next variables with your SSID/Password combination
+// loggin infor for wifi
 const char *ssid = "b26wifi";
 const char *password = "b26password";
 
@@ -89,7 +89,6 @@ void reconnect()
         if (client.connect("ESP8266Client"))
         {
             // Subscribe
-            // client.subscribe("esp32/output");
             client.subscribe("esp32/forward");
             client.subscribe("esp32/back");
             client.subscribe("esp32/left");
@@ -106,26 +105,24 @@ void reconnect()
         }
     }
 }
-int temp = 0;
+
 void loop()
 {
     if (!client.connected())
     {
-      Serial.println("client disconceterd");
+        Serial.println("client disconnected");
         reconnect();
     }
     client.loop();
 
     long now = millis();
     Serial.println("looping");
-    // if (now - lastMsg > 1000)
-    // {
+    // limits amount of data sent to once per second
+    if (now - lastMsg > 1000)
+    {
         lastMsg = now;
         sendSensorData();
-    // }
-
-
-
+    }
 }
 
 void callback(char *topic, byte *message, unsigned int length)
@@ -141,12 +138,7 @@ void callback(char *topic, byte *message, unsigned int length)
         messageTemp += (char)message[i];
     }
     Serial.println();
-
-    // Feel free to add more if statements to control more GPIOs with MQTT
-
-    //         If a message is received on the topic esp32 /
-    //     output,
-    //     you check if the message is either "on" or "off".Changes the output state according to the message
+    // logic for moving the car based on the instructions sent
     if (String(topic) == "esp32/forward")
     {
         if (String(messageTemp) == String("1"))
@@ -186,10 +178,10 @@ void callback(char *topic, byte *message, unsigned int length)
 void sendSensorData()
 {
     // sending range sendDataToArduino
-
     sendFloatToTopic("esp32/2/ultrasonic", (float)ultrasonic.getDistanceCM());
 
     // sending gyro data to sendDataToArduino
+    // making sure gyro and accelerometer are updated
     mySensor.accelUpdate();
     mySensor.gyroUpdate();
     sendFloatToTopic("esp32/2/ax", mySensor.accelX());
@@ -200,18 +192,16 @@ void sendSensorData()
     sendFloatToTopic("esp32/2/gZ", mySensor.gyroZ());
 
     Serial.printf("\n");
-    // sending accelerometer data to sendDataToArduino
-    // snnding leftWheel Speed left
-    // sennding right wheel speed left
 }
 
 void sendFloatToTopic(char *topic, float value)
 {
     char result[8]; // Buffer big enough for 7-character float
+    // converts value to stirng and stores it in result
     dtostrf(value, 6, 2, result);
-
+    // sends the result to topic using MQTT
     client.publish(topic, result);
-
+    // prints the result to serial for debugging
     Serial.printf(topic);
     Serial.printf("=");
     Serial.printf(result);
@@ -265,4 +255,3 @@ void turnRight()
     steeringAngle += 10;
     sendDataToArduino(leftMotor, rightMotor, steeringAngle);
 }
-
